@@ -69,4 +69,7 @@ locals {
   # Same frontend env as ECS, minus the Cloud Map address — on one host the
   # frontend reaches the API over the compose network (see user_data).
   frontend_env_ec2 = { for k, v in local.frontend_env : k => v if k != "BACKEND_URL" }
+
+  # Graviton instance families — they need an ARM64 AMI and ARM64 images.
+  ec2_is_graviton = can(regex("^(t4g|m7g|c7g|r7g|m6g|c6g|r6g|a1)\\.", var.ec2_instance_type))
 }

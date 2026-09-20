@@ -226,6 +226,13 @@ resource "aws_launch_template" "app" {
 
   lifecycle {
     create_before_destroy = true
+
+    # A Graviton instance needs an ARM64 AMI and ARM64 images. Catch the mismatch
+    # at plan time rather than watching the instance fail to launch.
+    precondition {
+      condition     = local.ec2_is_graviton == (var.cpu_architecture == "ARM64")
+      error_message = "ec2_instance_type ${var.ec2_instance_type} and cpu_architecture ${var.cpu_architecture} disagree: Graviton families (t4g/m7g/c7g/r7g/m6g/c6g/r6g/a1) require ARM64, everything else X86_64. The container images must match too."
+    }
   }
 }
 

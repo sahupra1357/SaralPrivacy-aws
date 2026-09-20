@@ -480,3 +480,191 @@ Expect ~3-6 minutes to a working site. What usually breaks the first time: a sec
 user-data does not read, an ACME rate limit from repeated certificate issuance, or the EIP
 association failing because the role lacks `ec2:AssociateAddress`. Better to learn that on a
 quiet afternoon than during an outage.
+
+---
+
+# Part 6 — AWS deploy, step by step
+
+Copy-paste walkthrough for `compute_mode = "ec2"` (Part 5 covers the fargate variant; the
+steps are identical except 4 and 6). Assumes Part 1 is live on Render/Vercel and tested.
+
+Set these once per shell:
+
+```bash
+cd infra/terraform
+export AWS_PROFILE=<your profile>
+export AWS_REGION=ap-south-1
+export TF=terraform
+```
+
+## 1. Prerequisites
+
+AWS CLI logged in with admin rights on the target account, Terraform >= 1.10, Docker with
+buildx, and the domain's registrar login. Create the state bucket once:
+
+```bash
+aws s3api create-bucket --bucket saralprivacy-tfstate --region $AWS_REGION \
+  --create-bucket-configuration LocationConstraint=$AWS_REGION
+aws s3api put-bucket-versioning --bucket saralprivacy-tfstate \
+  --versioning-configuration Status=Enabled
+aws s3api put-public-access-block --bucket saralprivacy-tfstate \
+  --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+
+cp backend.hcl.example backend.hcl
+cp terraform.tfvars.example terraform.tfvars
+```
+
+Edit `terraform.tfvars`: `compute_mode = "ec2"`, `enable_nat_gateway = false` (the instance
+uses its Elastic IP), `alarm_email`, `domain_name`, `github_repository`, and — if the zone
+already exists — `create_hosted_zone = false` + `hosted_zone_id`.
+
+```bash
+$TF init -backend-config=backend.hcl
+```
+
+## 2. Create the registries first
+
+The instance pulls its images at boot, so they must exist before it launches.
+
+```bash
+$TF apply -target='aws_ecr_repository.this'
+export ECR_WEB=$($TF output -raw ecr_web_repository_url)
+export ECR_API=$($TF output -raw ecr_api_repository_url)
+aws ecr get-login-password --region $AWS_REGION \
+  | docker login --username AWS --password-stdin "${ECR_WEB%%/*}"
+```
+
+## 3. Build and push both images
+
+**Architecture must match `cpu_architecture`** — `linux/arm64` for a t4g instance. A
+mismatch fails at plan time now, but the images are yours to get right.
+
+```bash
+cd ../..                      # repo root
+docker buildx build --platform linux/arm64 -t "$ECR_API:latest" --push backend
+docker buildx build --platform linux/arm64 \
+  --build-arg PUBLIC_ASSET_BASE_URL="https://<assets-bucket>.s3.ap-south-1.amazonaws.com" \
+  --build-arg NEXT_PUBLIC_SHOW_HINDI=true \
+  -t "$ECR_WEB:latest" --push frontend
+cd infra/terraform
+```
+
+The frontend bakes `PUBLIC_ASSET_BASE_URL` and `NEXT_PUBLIC_SHOW_HINDI` at build time. The
+bucket name is `<project>-<env>-assets`; if you would rather not guess, run step 4 first,
+read `terraform output -raw asset_base_url`, then build and push.
+
+## 4. Provision everything else
+
+```bash
+$TF plan -out=tfplan      # read it: ~60 resources, no deletions on a first run
+$TF apply tfplan
+```
+
+Route 53, ACM (DNS-validated, so the zone must be authoritative or validation hangs), VPC,
+RDS, S3, Secrets Manager, ECR, the EIP, launch template, ASG, CloudFront, alarms.
+
+If the zone was created by this apply, move the registrar's nameservers to
+`$TF output -json route53_nameservers` **now** — ACM validation will not finish until the
+zone answers publicly. Expect 5-30 minutes.
+
+## 5. Fill the secrets
+
+The instance boots, reads blank secrets, and the API refuses to start
+(`ENVIRONMENT=production` rejects a default `SECRET_KEY`). That is expected until this step.
+
+```bash
+$TF output -json app_secret_arn        # the target
+cat > secrets.json <<'JSON'
+{
+  "SECRET_KEY": "<same value as Render>",
+  "TOTP_ENCRYPTION_KEY": "<same as Render — changing it breaks every enrolled authenticator>",
+  "CRON_SECRET": "<same as Render>",
+  "EMAIL_LINK_SECRET": "<same as Render — old emailed links stop verifying otherwise>",
+  "CHAT_HISTORY_SECRET": "<same as Render>",
+  "BRIEFING_CRON_SECRET": "", "RESEND_WEBHOOK_SECRET": "",
+  "FIRST_ADMIN_EMAIL": "<admin>", "FIRST_ADMIN_PASSWORD": "<admin password>",
+  "ADMIN_EMAIL": "<notifications>", "EXTRA_ADMIN_EMAILS": "",
+  "SMTP_HOST": "smtp.resend.com", "SMTP_USER": "resend", "SMTP_PASSWORD": "<resend key>",
+  "ANTHROPIC_API_KEY": "", "PINECONE_API_KEY": "", "OPENROUTER_API_KEY": "",
+  "GITHUB_TOKEN": "", "GITHUB_OWNER": "", "GITHUB_REPO": "",
+  "GSC_SERVICE_ACCOUNT_JSON": "",
+  "TWILIO_ACCOUNT_SID": "", "TWILIO_AUTH_TOKEN": "", "TWILIO_WHATSAPP_FROM": "",
+  "GOOGLE_SHEET_ID": "", "GOOGLE_CREDENTIALS_JSON": "", "SERP_API_KEY": "", "KIE_API_KEY": ""
+}
+JSON
+aws secretsmanager put-secret-value \
+  --secret-id "$($TF output -raw app_secret_arn)" \
+  --secret-string file://secrets.json
+rm secrets.json
+```
+
+Every key in `app_secret_keys` must be present — an empty string is fine, a missing key is
+not. Then replace the instance so it re-reads them:
+
+```bash
+aws autoscaling start-instance-refresh \
+  --auto-scaling-group-name "$($TF output -raw app_asg_name)"
+```
+
+## 6. Watch it come up
+
+```bash
+aws logs tail "$($TF output -raw app_log_group)" --follow
+```
+
+Expect, in order: `database ready`, three `Running upgrade` lines (Alembic creating the
+schema in RDS), the API start, then web and caddy. Certificate issuance appears in the
+caddy stream. If it stalls, open a shell and read the boot log:
+
+```bash
+INSTANCE=$(aws autoscaling describe-auto-scaling-groups \
+  --auto-scaling-group-names "$($TF output -raw app_asg_name)" \
+  --query 'AutoScalingGroups[0].Instances[0].InstanceId' --output text)
+aws ssm start-session --target "$INSTANCE"
+sudo tail -100 /var/log/user-data.log
+```
+
+## 7. Move the data and files
+
+```bash
+# Database: Render -> RDS. Schema already exists (prestart migrated it), so data only.
+pg_dump "postgresql://<user>:<pw>@<render-external-host>/spdb?sslmode=require" \
+  --no-owner --no-privileges --data-only --disable-triggers -Fc -f spdb.dump
+# copy it to the instance (or run from anywhere that can reach RDS), then:
+pg_restore --no-owner --no-privileges --data-only --disable-triggers \
+  -d "$DATABASE_URL" spdb.dump
+
+# Files: guide PDFs and infographics into the assets bucket
+aws s3 sync ../../frontend/public/guides/pdf/ \
+  "s3://$($TF output -raw assets_bucket)/guides/pdf/" --content-type application/pdf
+```
+
+Then set `GUIDE_PDF_BASE_URL` in `app_env` (tfvars) to
+`$($TF output -raw asset_base_url)/guides/pdf`, re-apply, and refresh the instance. If any
+infographic URLs in the database still point at R2, rewrite them to `asset_base_url`.
+
+## 8. Verify before DNS moves
+
+```bash
+SITE=$($TF output -raw site_url)
+curl -I "https://origin.<domain>/api/health"                       # the instance itself
+curl -s "$SITE/api/proxy/api/v1/utils/health-check/db"             # all three tiers
+curl -I "$($TF output -raw asset_base_url)/guides/pdf/dpdpa-guide-en.pdf"
+```
+
+In a browser: `/admin/login` (TOTP should accept your existing authenticator, because
+`TOTP_ENCRYPTION_KEY` matched), one PDF generation, one form submission, one email.
+
+## 9. Cut over
+
+1. Copy Resend DKIM/SPF/DMARC, Search Console TXT and any MX records into the Route 53 zone.
+2. Point the registrar at `route53_nameservers`.
+3. Watch for an hour. Keep Render and Vercel **running** — DNS propagation is uneven.
+4. Once traffic has moved, disable the Vercel project and the Render services so nothing
+   sends email or runs a cron twice. Keep the Render database for a week of AWS backups.
+
+## Rollback
+
+DNS is the switch. Point the records back at Vercel and Render; both are still running, and
+their database is untouched. Everything else can be destroyed with `terraform destroy`
+(`db_deletion_protection = true` guards RDS — clear it deliberately).

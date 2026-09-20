@@ -8,7 +8,8 @@
 compute_mode = "ec2"
 
 # compute_mode = "ec2" knobs (ignored in fargate mode)
-ec2_instance_type  = "t4g.medium" # 2 vCPU / 4 GB; must match cpu_architecture
+ec2_instance_type  = "t4g.medium" # 2 vCPU / 4 GB Graviton — needs cpu_architecture = "ARM64"
+cpu_architecture   = "ARM64"      # build images with --platform linux/arm64
 ec2_root_volume_gb = 30           # the API image carries Chromium
 # ec2_key_name           = ""     # empty = SSM Session Manager only (recommended)
 # ec2_enable_health_check = true  # Route 53 check drives the alarm, not the failover
