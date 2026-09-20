@@ -21,8 +21,10 @@ const ASSET = assetOrigin();
 const ASSET_IMG_SRC = ASSET && ASSET.protocol === "http:" ? ` ${ASSET.origin}` : "";
 
 const nextConfig: NextConfig = {
-  // Self-contained server bundle for the Docker image (infra/). Vercel ignores it.
-  output: "standalone",
+  // Self-contained server bundle for the Docker image (infra/). NOT on Vercel: its
+  // builder reads .next/package.json, which a standalone build does not write, and the
+  // deploy fails at "Deploying outputs" with ENOENT .next/package.json.
+  output: process.env.VERCEL ? undefined : "standalone",
   // Pin the workspace root to this directory. Without it, Next.js walks up
   // looking for lockfiles and a stray one higher in the tree makes the
   // standalone output land at .next/standalone/<nested path>/server.js
