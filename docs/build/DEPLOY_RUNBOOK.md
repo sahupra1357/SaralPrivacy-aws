@@ -224,3 +224,93 @@ keep it manual and run the workflow from the Actions tab.
   to the secret; the S3 bucket Terraform creates is the lower-friction path.
 - **Render Postgres**: keep the instance until a week of AWS backups exists.
 - Vercel's project can be deleted once DNS is stable; the Render services likewise.
+
+---
+
+# Part 3 — What each option costs
+
+All figures are approximate **ap-south-1 / current provider list prices, monthly, light
+traffic**, gathered 2026-09-20. Re-check the calculators before committing — they move.
+The point of this section is the *shape* of each bill, which does not move: AWS charges for
+provisioned capacity, the PaaS options charge per service.
+
+## A. AWS ECS Fargate (what infra/terraform builds)
+
+Defaults as shipped: single NAT, 2 AZs, WAF on, 20 GB storage, Performance Insights off.
+
+| Item | Rate | USD/mo |
+|---|---|---|
+| ALB | $0.0225/hr + LCUs | 20 |
+| NAT gateway ×1 | $0.045/hr + $0.045/GB | 33 |
+| Fargate api 1 vCPU / 2 GB | $0.04048/vCPU-hr + $0.004445/GB-hr | 36 |
+| Fargate worker 1 vCPU / 2 GB | same | 36 |
+| Fargate web 0.5 vCPU / 1 GB | same | 18 |
+| RDS db.t4g.micro + 20 GB gp3 | ~$0.016/hr + storage | 15 |
+| WAF | $5 ACL + ~$1/rule + per-request | 8-12 |
+| CloudFront | ~$0.17/GB (India edge) | 2 |
+| Route 53, Secrets Manager ×2, CloudWatch, ECR, S3 | | 4-6 |
+| **Total** | | **≈ 170** |
+
+~90% is idle capacity: three tasks running 24x7 plus an ALB and NAT rented by the hour.
+Ten visitors or ten thousand, the bill is the same.
+
+Trims: `enable_nat_gateway = false` (-33, tasks move to public subnets behind SGs),
+`enable_waf = false` (-10), worker on Fargate Spot (-25, interruptible but the jobs hold
+Postgres advisory locks), merge the worker into the api container (-36), api at
+0.5 vCPU / 2 GB (-15, slower Chromium PDFs). Trimmed sensibly: **≈ 100**.
+
+## B. AWS, single EC2 box running docker compose
+
+The repo's `docker-compose.yml` already runs the whole stack. One instance, Caddy or nginx
+terminating TLS with Let's Encrypt, no ALB, no NAT, no ECR.
+
+| Item | Rate | USD/mo |
+|---|---|---|
+| EC2 t4g.medium (2 vCPU burst, 4 GB) | $0.0336/hr | 25 |
+| EBS gp3 30 GB | ~$0.092/GB-mo | 3 |
+| EBS snapshots (daily, ~30 GB) | $0.05/GB-mo | 1-2 |
+| Elastic IP (attached) | free while in use | 0 |
+| Data transfer out | first 100 GB/mo free | 0 |
+| Route 53 | | 0.50 |
+| **Total, Postgres in a container on the same box** | | **≈ 30** |
+| Same, but Postgres on RDS db.t4g.micro | +15 | **≈ 45** |
+
+t4g.small (2 GB) at ~$12 is tempting but too tight once Chromium, Next.js and Postgres share
+the box. A 1-year Savings Plan takes ~40% off the instance; Spot is ~$7/mo and can be
+reclaimed at any time — not for the only server.
+
+What you give up: no autoscaling, no multi-AZ, you patch the OS, backups are your job,
+`docker compose pull && up -d` is the deploy (brief downtime), and one instance failure is a
+full outage. Sensible for a pre-revenue product; not for one with an SLA.
+
+## C. Vercel + Render + R2 (what is running today)
+
+| Item | Plan | USD/mo |
+|---|---|---|
+| Vercel | Hobby | 0 |
+| Vercel, if commercial use | Pro (per seat) | 20 |
+| Render web service (backend, needs RAM for Chromium) | Standard 2 GB | 25 |
+| Render background worker | Starter 512 MB | 7 |
+| Render Postgres | shared with an existing instance | 0 |
+| Render Postgres, if dedicated | Basic 1 GB | 19 |
+| Cloudflare R2 | ~100 MB stored, egress free | <1 |
+| Resend | free to 3k emails/mo | 0 |
+| **Total as configured** | | **≈ 33** |
+| **Total, commercial + dedicated DB** | | **≈ 72** |
+
+**Read Vercel's Hobby terms.** It prohibits commercial use, and saralprivacy.com is a
+commercial product — budget for Pro.
+
+## Choosing
+
+| | Fargate | EC2 box | Vercel + Render |
+|---|---|---|---|
+| Monthly | 100-170 | 30-45 | 33-72 |
+| Ops burden | low | **high** | lowest |
+| Scales without work | yes | no | yes |
+| Survives one failure | yes | **no** | yes |
+| Data in India | **yes** (ap-south-1) | **yes** | no (Render SG, R2 ENAM) |
+
+The residency row is the one that may decide it: this product sells DPDPA readiness, and
+"where does our data live" is a question customers will ask. A middle path is RDS in
+ap-south-1 (~15) with the app staying on Render.
