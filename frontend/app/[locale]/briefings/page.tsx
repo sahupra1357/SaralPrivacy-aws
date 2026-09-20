@@ -45,7 +45,7 @@ export default async function BriefingsPage() {
   try {
     all = await getArchive();
   } catch (err) {
-    console.error("[briefings] Appwrite fetch failed:", err);
+    console.error("[briefings] briefings fetch failed:", err);
     fetchFailed = true;
   }
 

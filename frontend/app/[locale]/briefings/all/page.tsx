@@ -42,7 +42,7 @@ export default async function AllBriefingsPage() {
       format: b.format,
     }));
   } catch (err) {
-    console.error("[briefings/all] Appwrite fetch failed:", err);
+    console.error("[briefings/all] briefings fetch failed:", err);
     fetchFailed = true;
   }
 
