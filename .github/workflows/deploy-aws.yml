@@ -17,13 +17,17 @@
 
 name: Deploy to AWS (ECS Fargate)
 
+# Manual only. While the app is deployed to Vercel (frontend) and Render (backend), a
+# push must not trigger this: the repository variables below come from `terraform output`
+# and are unset until the AWS stack is back. Restore the `push: branches: [main]` trigger
+# when ECS becomes the deploy target again.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "frontend/**"
-      - "backend/**"
-      - ".github/workflows/deploy-aws.yml"
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "frontend/**"
+  #     - "backend/**"
+  #     - ".github/workflows/deploy-aws.yml"
   workflow_dispatch:
 
 concurrency:
