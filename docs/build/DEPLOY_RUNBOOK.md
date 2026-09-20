@@ -158,3 +158,69 @@ PY
 
 Email: `UPDATE app.users SET email=…`. Full reseed: delete from `app.sessions` and
 `app.invite_tokens` first (foreign keys), then `app.users`, then restart.
+
+---
+
+# Part 2 — AWS (the final target)
+
+Architecture, cost table and operations commands live in `infra/AWS_DEPLOYMENT_PLAN.md`
+(CloudFront → ALB → ECS Fargate web/api/worker → RDS 16, S3 assets, Resend SMTP).
+Terraform is in `infra/terraform`, validated, **never applied**. This section is only what
+changes because Render/Vercel/R2 ran first, plus the order to do it in.
+
+## Before `terraform apply` — three edits
+
+`infra/terraform/terraform.tfvars` (copied from `.example`) still carries pre-rebuild values:
+
+| Key | Change to | Why |
+|---|---|---|
+| `github_repository` | `sahupra1357/SaralPrivacy-aws` | The example names the old repo; the OIDC trust policy is built from this, so pushes from the new repo are refused |
+| `app_env.ANTHROPIC_MODEL` | `claude-sonnet-5` | `claude-sonnet-4-6` is previous-generation and costs more ($3/$15 vs $2/$10 per MTok) |
+| `app_env.GUIDE_PDF_BASE_URL` | `<asset_base_url>/guides/pdf` | Not in Terraform's defaults. `app_env` merges into the backend/worker env. Set it after the first apply, when `terraform output -raw asset_base_url` is known, then re-apply |
+
+Re-enable the push trigger in `.github/workflows/deploy-aws.yml` (Part 1 §0 disabled it), or
+keep it manual and run the workflow from the Actions tab.
+
+## Order
+
+1. **Phases 0-3 of `infra/AWS_DEPLOYMENT_PLAN.md`** — state bucket, `terraform apply`, write
+   `secrets.json` to Secrets Manager, set the GitHub repository variables from
+   `terraform output`, run the deploy workflow.
+   Use the *same* `SECRET_KEY`, `TOTP_ENCRYPTION_KEY`, `CRON_SECRET`, `EMAIL_LINK_SECRET`
+   and `CHAT_HISTORY_SECRET` as Render, or every session, emailed link and enrolled
+   authenticator breaks.
+2. **Data: Render Postgres → RDS.** By then `spdb` holds real leads, assessments and
+   briefings.
+   ```bash
+   pg_dump "postgresql://<user>:<pw>@<render-external-host>/spdb?sslmode=require" \
+     --no-owner --no-privileges -Fc -f spdb.dump
+   # from a bastion or `aws ecs execute-command` into the api task:
+   pg_restore --no-owner --no-privileges -d "$DATABASE_URL" spdb.dump
+   ```
+   The api task has already run `alembic upgrade head`, so restore **data only**
+   (`--data-only --disable-triggers`) or drop and recreate the schemas first — a plain
+   restore over migrated tables fails on duplicate keys.
+3. **Files: R2 → S3.** Terraform creates the assets bucket; the task role replaces the R2
+   keys (`S3_ENDPOINT` stays empty = real S3).
+   ```bash
+   aws s3 sync frontend/public/guides/pdf/ s3://<assets_bucket>/guides/pdf/ --content-type application/pdf
+   rclone sync r2:<r2-bucket>/infographics s3:<assets_bucket>/infographics   # or re-download and aws s3 cp
+   ```
+   Then rewrite stored infographic URLs in the database from the R2 base to
+   `asset_base_url`, and set `PUBLIC_ASSET_BASE_URL` + `GUIDE_PDF_BASE_URL` accordingly.
+4. **Verify on the ALB/CloudFront URL before DNS moves** — the Part 1 §6 checks, plus
+   `/admin` sign-in and one PDF generation (Playwright is the piece Render proved, ECS must
+   prove again at 1 vCPU / 2 GB).
+5. **Phase 5 cutover.** Copy Resend DKIM/SPF/DMARC, Search Console TXT and MX into the
+   Route 53 zone *first*, then repoint the registrar at `route53_nameservers`.
+   Keep Render and Vercel running until DNS has propagated; then disable the Vercel project
+   so nothing serves or sends twice.
+
+## What stays behind
+
+- **R2** can stay as the public asset host (cheaper egress) — then keep `GUIDE_PDF_BASE_URL`
+  and `PUBLIC_ASSET_BASE_URL` on the R2 domain and skip step 3. But `S3_ACCESS_KEY` /
+  `S3_SECRET_KEY` are **not** in `app_secret_keys`, so uploads would need those keys added
+  to the secret; the S3 bucket Terraform creates is the lower-friction path.
+- **Render Postgres**: keep the instance until a week of AWS backups exists.
+- Vercel's project can be deleted once DNS is stable; the Render services likewise.
