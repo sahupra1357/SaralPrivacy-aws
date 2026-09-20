@@ -21,16 +21,17 @@ const ASSET = assetOrigin();
 const ASSET_IMG_SRC = ASSET && ASSET.protocol === "http:" ? ` ${ASSET.origin}` : "";
 
 const nextConfig: NextConfig = {
-  // Self-contained server bundle for the Docker image (infra/). NOT on Vercel: its
-  // builder reads .next/package.json, which a standalone build does not write, and the
-  // deploy fails at "Deploying outputs" with ENOENT .next/package.json.
+  // Self-contained server bundle for the Docker image (infra/), and the workspace root
+  // pinned to this directory — without the pin, Next walks up for a lockfile and the
+  // standalone output lands at .next/standalone/<nested path>/server.js instead of
+  // .next/standalone/server.js, which the Dockerfile expects.
+  //
+  // Both are OFF on Vercel. Its Root Directory is `frontend`, so it expects traced paths
+  // relative to the REPO root ("frontend/.next/..."); pinning the tracing root here makes
+  // them relative to frontend/ instead, and the deploy dies collecting outputs with
+  // ENOENT /vercel/path0/.next/package.json. Vercel needs no pin: the lockfile is here.
   output: process.env.VERCEL ? undefined : "standalone",
-  // Pin the workspace root to this directory. Without it, Next.js walks up
-  // looking for lockfiles and a stray one higher in the tree makes the
-  // standalone output land at .next/standalone/<nested path>/server.js
-  // instead of .next/standalone/server.js, which the Dockerfile expects.
-  turbopack: { root: __dirname },
-  outputFileTracingRoot: __dirname,
+  ...(process.env.VERCEL ? {} : { turbopack: { root: __dirname }, outputFileTracingRoot: __dirname }),
   images: {
     remotePatterns: ASSET
       ? [
