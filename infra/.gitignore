@@ -1,0 +1,11 @@
+# Terraform
+terraform/.terraform/
+terraform/.build/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/backend.hcl
+terraform/terraform.tfvars
+terraform/*.auto.tfvars
+terraform/crash.log
+# secrets seed file
+secrets.json

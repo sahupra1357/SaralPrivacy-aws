@@ -1,0 +1,116 @@
+# Build both images, push them to ECR, and roll the three ECS services.
+# Auth is GitHub OIDC → the IAM role from infra/terraform (output github_deploy_role_arn).
+#
+# Repository variables (Settings → Secrets and variables → Actions → Variables), all from
+# `terraform output`:
+#   AWS_REGION            e.g. ap-south-1
+#   AWS_DEPLOY_ROLE_ARN   github_deploy_role_arn
+#   ECR_WEB_REPOSITORY    ecr_web_repository_url
+#   ECR_API_REPOSITORY    ecr_api_repository_url
+#   ECS_CLUSTER           ecs_cluster_name
+#   ECS_WEB_SERVICE / ECS_API_SERVICE / ECS_WORKER_SERVICE   ecs_services.web / .api / .worker
+#   BACKEND_INTERNAL_URL  backend_internal_url   (baked into the frontend's rewrites)
+#   ASSET_BASE_URL        asset_base_url         (frontend CSP / image allow-list)
+#   SITE_URL              e.g. https://saralprivacy.com (smoke test)
+#   NEXT_PUBLIC_SHOW_HINDI "true" to show the header language toggle (compiled into the
+#                         frontend at build time; empty keeps it hidden in production)
+
+name: Deploy to AWS (ECS Fargate)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "backend/**"
+      - ".github/workflows/deploy-aws.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-aws-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: prod
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image (api + worker)
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          platforms: linux/amd64 # must match cpu_architecture in Terraform (X86_64)
+          push: true
+          provenance: false
+          tags: |
+            ${{ vars.ECR_API_REPOSITORY }}:${{ github.sha }}
+            ${{ vars.ECR_API_REPOSITORY }}:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          build-args: |
+            BACKEND_URL=${{ vars.BACKEND_INTERNAL_URL }}
+            PUBLIC_ASSET_BASE_URL=${{ vars.ASSET_BASE_URL }}
+            NEXT_PUBLIC_SHOW_HINDI=${{ vars.NEXT_PUBLIC_SHOW_HINDI }}
+          tags: |
+            ${{ vars.ECR_WEB_REPOSITORY }}:${{ github.sha }}
+            ${{ vars.ECR_WEB_REPOSITORY }}:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      # Backend first: it runs the Alembic migrations on start, so the schema is current
+      # before the new frontend and worker come up.
+      - name: Roll backend and wait
+        run: |
+          aws ecs update-service --cluster "${{ vars.ECS_CLUSTER }}" --service "${{ vars.ECS_API_SERVICE }}" --force-new-deployment >/dev/null
+          aws ecs wait services-stable --cluster "${{ vars.ECS_CLUSTER }}" --services "${{ vars.ECS_API_SERVICE }}"
+
+      - name: Roll worker and frontend
+        run: |
+          for svc in "${{ vars.ECS_WORKER_SERVICE }}" "${{ vars.ECS_WEB_SERVICE }}"; do
+            aws ecs update-service --cluster "${{ vars.ECS_CLUSTER }}" --service "$svc" --force-new-deployment >/dev/null
+          done
+          aws ecs wait services-stable --cluster "${{ vars.ECS_CLUSTER }}" \
+            --services "${{ vars.ECS_WORKER_SERVICE }}" "${{ vars.ECS_WEB_SERVICE }}"
+          echo "Deployed ${{ github.sha }}"
+
+      - name: Smoke test
+        run: |
+          for path in /api/health /api/proxy/api/v1/utils/health-check/db /; do
+            ok=""
+            for i in 1 2 3 4 5 6; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' "${{ vars.SITE_URL }}$path" || true)
+              echo "$path attempt $i → HTTP $code"
+              if [ "$code" = "200" ]; then ok=1; break; fi
+              sleep 10
+            done
+            [ -n "$ok" ] || { echo "$path did not return 200"; exit 1; }
+          done

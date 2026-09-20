@@ -1,0 +1,59 @@
+{#
+  Invite / admin-invite / recovery email. Copy carried over verbatim from
+  webapp/lib/email-templates.ts § bloggerInviteTemplate (see the auth inventory).
+  Context: kind ("invite"|"recovery"), role ("admin"|"blogger"), name, invite_url, valid_for.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if kind == "recovery" %}Password reset{% else %}Welcome, {{ name }}!{% endif %}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f4ef;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1c2333;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ef;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:#0f2a44;padding:20px 28px;color:#ffffff;font-size:18px;font-weight:600;">SaralPrivacy</td></tr>
+        <tr><td style="padding:28px;font-size:15px;line-height:1.6;">
+
+          <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#1E3A5F;">{% if kind == "recovery" %}Password reset{% else %}Welcome, {{ name }}!{% endif %}</h2>
+
+          {% if kind == "recovery" %}
+            <p style="margin:0 0 20px;font-size:15px;color:#718096;">We received a request to reset the password for your <strong>SaralPrivacy</strong> admin account. If you didn't ask for this, ignore this email — nothing changes.</p>
+          {% elif role == "admin" %}
+            <p style="margin:0 0 20px;font-size:15px;color:#718096;">Your <strong>SaralPrivacy</strong> admin account is ready. Set a password now; on your first sign-in you'll also set up an authenticator app (two-step verification).</p>
+          {% else %}
+            <p style="margin:0 0 20px;font-size:15px;color:#718096;">You have been invited to contribute expert insights to <strong>SaralPrivacy</strong> — India's DPDPA compliance platform.</p>
+
+            <p style="margin:0 0 16px;font-size:14px;color:#2D3748;">As a <strong>Blog Contributor</strong>, you can:</p>
+            <ul style="margin:0 0 24px;padding-left:20px;font-size:14px;color:#2D3748;line-height:1.8;">
+              <li>Write and draft DPDPA compliance insights</li>
+              <li>Run AI-powered DPDPA guardrail validation on your content</li>
+              <li>Generate smart infographics from your articles</li>
+              <li>Submit posts for admin review and publication</li>
+            </ul>
+          {% endif %}
+
+          <p style="margin:0 0 20px;font-size:14px;color:#718096;">Click the button below to {% if kind == "recovery" %}choose a new password{% else %}set up your password and get started{% endif %}. This link is valid for <strong>{{ valid_for }}</strong> and can be used once.</p>
+
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+            <tr>
+              <td style="border-radius:8px;background-color:#1E3A5F;">
+                <a href="{{ invite_url }}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">{% if kind == "recovery" %}Choose a New Password{% else %}Set Up My Account{% endif %}</a>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:0;font-size:12px;color:#718096;">If the button does not work, copy this link into your browser:<br/>
+          <a href="{{ invite_url }}" style="color:#1E3A5F;word-break:break-all;">{{ invite_url }}</a></p>
+
+        </td></tr>
+        <tr><td style="padding:16px 28px;font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;">
+          SaralPrivacy · <a href="{{ site_url }}" style="color:#0f2a44;">{{ site_url }}</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

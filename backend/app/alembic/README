@@ -1,0 +1,3 @@
+Alembic migrations. `make revision M="..."` autogenerates; the orchestrator reviews each file.
+Schemas `ops` and `app` are created by app/backend_pre_start.py (every start, idempotent),
+backend/db/init/01_schemas.sql (fresh local containers) and scripts/test.sh (test database) before `alembic upgrade head` runs.

@@ -1,0 +1,57 @@
+# Secrets
+.env
+credentials.json
+token.json
+
+# Temporary files
+.tmp/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
+*.pem
+
+# Node / Next.js
+node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+/coverage
+/.next/
+/out/
+/build
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Env files
+.env*
+.env*.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# discovery tool: regenerable test fixture (rebuild via tools/build-discovery-data.py)
+tools/data/niche-items.golden.json
+node_modules
+
+# Search Console service-account key + SEO inspection reports (tools/seo)
+.gsc-service-account.json
+tools/seo/reports/

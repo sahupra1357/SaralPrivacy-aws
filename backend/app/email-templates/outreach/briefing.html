@@ -1,0 +1,106 @@
+{#- Subscriber briefing — port of briefingEmailTemplate (lib/email-templates.ts §7).
+    Briefing fields are approved editorial HTML and are inserted unescaped, as before. -#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DPDPA Daily Brief: {{ title|safe }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F7F8FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#2D3748;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F7F8FA;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#1E3A5F;border-radius:12px 12px 0 0;padding:28px 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td>
+                    <span style="color:#FFFFFF;font-size:20px;font-weight:700;">Saral<span style="color:#E07B39;">Privacy</span></span>
+                    <p style="margin:2px 0 12px;color:rgba(255,255,255,0.6);font-size:11px;text-transform:uppercase;letter-spacing:1px;">DPDPA Daily Brief</p>
+                    <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;">{{ date_str }}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Headline -->
+          <tr>
+            <td style="background-color:#FFFFFF;padding:32px 32px 0;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;">
+              <h1 style="margin:0 0 16px;font-size:24px;font-weight:700;color:#1E3A5F;line-height:1.3;">{{ title|safe }}</h1>
+              {% if summary %}<p style="margin:0 0 0;font-size:15px;color:#718096;line-height:1.7;border-left:3px solid #E07B39;padding-left:16px;">{{ summary|safe }}</p>{% endif %}
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="background-color:#FFFFFF;padding:0 32px;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;">
+              <hr style="border:none;border-top:1px solid #E2E8F0;margin:24px 0;" />
+            </td>
+          </tr>
+{% if why_it_matters %}
+          <!-- Why It Matters -->
+          <tr>
+            <td style="background-color:#FFFFFF;padding:0 32px 24px;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;">
+              <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#E07B39;text-transform:uppercase;letter-spacing:1px;">Why It Matters</p>
+              <p style="margin:0;font-size:14px;color:#2D3748;line-height:1.7;">{{ why_it_matters|safe }}</p>
+            </td>
+          </tr>
+{% endif %}
+{% if content %}
+          <!-- Full Content -->
+          <tr>
+            <td style="background-color:#FFFFFF;padding:0 32px 24px;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;">
+              <div style="font-size:14px;color:#2D3748;line-height:1.7;">{{ content|safe }}</div>
+            </td>
+          </tr>
+{% endif %}
+{% if checklist %}
+          <!-- Action Checklist -->
+          <tr>
+            <td style="background-color:#F0F7FF;padding:24px 32px;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;">
+              <p style="margin:0 0 16px;font-size:11px;font-weight:700;color:#1E3A5F;text-transform:uppercase;letter-spacing:1px;">Your Action Checklist</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                {% include "outreach/_checklist_rows.html" %}
+              </table>
+            </td>
+          </tr>
+{% endif %}
+
+          <!-- CTA -->
+          <tr>
+            <td style="background-color:#FFFFFF;padding:24px 32px;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background-color:#1E3A5F;border-radius:8px;padding:12px 24px;">
+                    <a href="https://saralprivacy.com" style="color:#FFFFFF;font-size:14px;font-weight:600;text-decoration:none;">Get Expert Guidance →</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#F7F8FA;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 12px 12px;padding:20px 32px;text-align:center;">
+              <p style="margin:0 0 8px;font-size:12px;color:#718096;">
+                You're receiving this because you subscribed to DPDPA Daily Briefings.
+              </p>
+              <p style="margin:0;font-size:12px;color:#718096;">
+                <a href="https://saralprivacy.com" style="color:#1E3A5F;text-decoration:none;">saralprivacy.com</a>
+                &nbsp;·&nbsp;
+                <a href="{{ unsubscribe_url }}" style="color:#718096;text-decoration:underline;">Unsubscribe</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

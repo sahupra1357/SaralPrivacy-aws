@@ -1,0 +1,56 @@
+# Copy to terraform.tfvars (git-ignored). Everything has a sane default; these are the
+# values you are most likely to change.
+
+aws_region  = "ap-south-1"
+domain_name = "saralprivacy.com"
+environment = "prod"
+
+# First apply: create the zone, then move the registrar's nameservers to the output
+# `route53_nameservers`. If the domain already has a Route 53 zone:
+# create_hosted_zone = false
+# hosted_zone_id     = "Z0123456789ABCDEFGHIJ"
+create_hosted_zone = true
+
+# CloudFront in front of the ALB: supplies visitor city/country/region + real IP.
+enable_cloudfront = true
+
+# Cost knobs
+enable_nat_gateway = true # false = tasks in public subnets, no NAT (~USD 35/mo less)
+
+# Frontend (Next.js)
+task_cpu      = 512
+task_memory   = 1024
+desired_count = 1
+min_count     = 1
+max_count     = 4
+
+# Backend (FastAPI + Playwright PDFs) and worker (scheduled jobs)
+backend_task_cpu    = 1024
+backend_task_memory = 2048
+backend_min_count   = 1
+backend_max_count   = 4
+worker_task_cpu     = 1024
+worker_task_memory  = 2048
+
+# Database
+db_instance_class      = "db.t4g.micro"
+db_multi_az            = false
+db_deletion_protection = true
+
+# Alerts
+alarm_email = "you@example.com"
+
+# CI/CD (GitHub OIDC)
+github_repository    = "SahuDilip1356/SaralPrivacy"
+github_deploy_branch = "main"
+
+# Extra non-secret backend/worker env (merged over locals.tf defaults)
+app_env = {
+  OUTREACH_DAILY_CAP = "50"
+  ANTHROPIC_MODEL    = "claude-sonnet-4-6"
+}
+
+# Secrets: do NOT put them here. After the first apply run
+#   aws secretsmanager put-secret-value --secret-id <app_secret_arn> --secret-string file://secrets.json
+# where secrets.json contains every key in app_secret_keys (variables.tf).
+# Resend SMTP: SMTP_HOST=smtp.resend.com, SMTP_USER=resend, SMTP_PASSWORD=<Resend API key>.

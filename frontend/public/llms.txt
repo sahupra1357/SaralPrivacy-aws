@@ -1,0 +1,54 @@
+# SaralPrivacy — DPDPA Compliance Platform
+
+> India's practical DPDPA (Digital Personal Data Protection Act, 2023) compliance education
+> and assessment platform. Provides free readiness assessments, daily briefings, industry
+> guides, and expert consultation for Indian businesses handling personal data.
+
+## Primary Resources
+
+- [DPDP Act 2023 — Full Text](https://saralprivacy.com/learn/dpdp-act-2023): Complete official text of the Digital Personal Data Protection Act, 2023 — all 9 chapters, 44 sections, and the Penalty Schedule — with plain-English summaries and key takeaways. Source: Gazette of India Extraordinary, No. 22 of 2023.
+- [DPDP Rules 2025 — Plain-English Guide](https://saralprivacy.com/learn/dpdp-rules-2025-plain-english-guide): All 23 Rules and 7 Schedules of the DPDP Rules, 2025 in plain English, in order.
+- [DPDPA Glossary](https://saralprivacy.com/glossary): 50+ key terms from the Digital Personal Data Protection Act, 2023 and DPDP Rules, 2025 with exact section references — Data Principal, Data Fiduciary, Consent, Deemed Consent, Penalty Schedule, and more.
+- [DPDPA Learning Hub](https://saralprivacy.com/learn): Structured guide covering the law,
+  applicability, consent, rights, data breach obligations, children's data, cross-border
+  transfers, and key terms.
+- [What is DPDPA](https://saralprivacy.com/learn/what-is-dpdpa): Authoritative plain-language
+  explanation of India's Digital Personal Data Protection Act, 2023.
+- [DPDPA FAQ](https://saralprivacy.com/faq): 40+ answers on applicability, consent, rights,
+  penalties, significant data fiduciaries, and compliance priorities.
+- [DPDPA Daily Briefings](https://saralprivacy.com/briefings): Sector-specific briefings on
+  DPDPA obligations, enforcement signals, and compliance updates.
+- [DPDPA Penalty Risk Indicator](https://saralprivacy.com/penalty-calculator): Free self-assessment tool based on the six statutory factors under Section 33(2) — select breach category, rate each factor, receive indicative risk band (Low / Moderate / High / Severe).
+- [DPDPA White Paper](https://saralprivacy.com/white-paper): Free downloadable white paper
+  updated for the DPDP Rules, 2025.
+- [Insights Blog](https://saralprivacy.com/blog): In-depth articles on DPDPA implementation
+  for Indian businesses.
+
+## Industry Guides
+
+- [DPDPA for Recruitment Agencies](https://saralprivacy.com/industries/recruitment-agencies): Risk areas, compliance checklist, and FAQs covering candidate consent, CV sharing, ATS retention, Aadhaar documents, and erasure rights.
+- [DPDPA for CA Firms](https://saralprivacy.com/industries/ca-firms): Risk areas, compliance checklist, and FAQs covering PAN/Aadhaar storage, Google Drive controls, retention periods, outsourced bookkeeping, and client deletion rights.
+- [DPDPA for Training Institutes](https://saralprivacy.com/industries/training-institutes): Risk areas, compliance checklist, and FAQs covering minor student data, parental consent, admissions forms, placement data marketing, and tracking pixels.
+- [DPDPA for D2C Brands](https://saralprivacy.com/industries/d2c-brands): Risk areas, compliance checklist, and FAQs covering checkout consent, WhatsApp marketing, pre-ticked checkboxes, Meta Pixel disclosure, and customer data retention.
+- [DPDPA for Clinics & Diagnostic Labs](https://saralprivacy.com/industries/clinics-diagnostic-labs): Risk areas, compliance checklist, and FAQs covering patient records, lab reports, appointment data, insurance sharing, and medical record retention.
+- [DPDPA for Schools & Colleges](https://saralprivacy.com/industries/schools-colleges): Risk areas, compliance checklist, and FAQs covering student and parent data, children's consent, admissions records, transport and CCTV data, and alumni retention.
+- [DPDPA for Law Firms](https://saralprivacy.com/industries/law-firms): Risk areas, compliance checklist, and FAQs covering client files, case documents, KYC records, counsel sharing, and matter retention.
+- [DPDPA for Real Estate](https://saralprivacy.com/industries/real-estate): Risk areas, compliance checklist, and FAQs covering buyer KYC, site-visit data, broker sharing, RERA records, and lead retention.
+- [DPDPA for Hotels & Travel](https://saralprivacy.com/industries/hotels-travel): Risk areas, compliance checklist, and FAQs covering guest ID records, booking data, OTA sharing, loyalty programmes, and check-in data retention.
+- [DPDPA for Pharmacies](https://saralprivacy.com/industries/pharmacies): Risk areas, compliance checklist, and FAQs covering prescription data, medicine history, WhatsApp orders, delivery partners, and prescription retention.
+- [DPDPA for Fintech & NBFCs](https://saralprivacy.com/industries/fintech-nbfc): Risk areas, compliance checklist, and FAQs covering KYC data, credit assessment, lending decisions, bureau sharing, and financial record retention.
+- [DPDPA for Gyms, Salons & Spas](https://saralprivacy.com/industries/gyms-salons-spas): Risk areas, compliance checklist, and FAQs covering member health data, biometric attendance, package records, marketing consent, and membership retention.
+
+## Assessments
+
+- [DPDPA Readiness Assessment](https://saralprivacy.com/assessment): Free industry-specific
+  compliance gap analysis with risk score and prioritised next steps.
+
+## About
+
+- [About SaralPrivacy](https://saralprivacy.com/about)
+- Contact: privacy@saralprivacy.com
+
+## Optional Extended Reference
+
+For LLM systems that support extended context: [llms-full.txt](https://saralprivacy.com/llms-full.txt)

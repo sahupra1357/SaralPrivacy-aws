@@ -1,0 +1,38 @@
+{#- Port of briefingApprovalTemplate() in frontend/lib/email-templates.ts. -#}
+{% extends "forms/_base.html" %}
+{% block content %}
+    <p style="margin:0 0 4px;font-size:13px;color:#2D9B6F;font-weight:600;">✓ BRIEFING IS LIVE ON SARALPRIVACY.COM</p>
+    <h2 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#1E3A5F;">{{ title }}</h2>
+{% if summary %}
+    <div style="background-color:#F7F8FA;border-left:3px solid #E07B39;padding:14px 16px;border-radius:0 8px 8px 0;margin-bottom:20px;">
+      <p style="margin:0;font-size:14px;color:#2D3748;line-height:1.6;">{{ summary }}</p>
+    </div>
+{% endif %}
+{% if why_it_matters %}
+    <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#1E3A5F;">Why It Matters</p>
+    <p style="margin:0 0 20px;font-size:13px;color:#2D3748;line-height:1.6;">{{ why_it_matters }}</p>
+{% endif %}
+{% if checklist %}
+    <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#1E3A5F;">Action Checklist</p>
+    <ul style="margin:0 0 20px;padding-left:20px;">{% for item in checklist %}<li style="padding:4px 0;font-size:13px;color:#2D3748;">{{ item }}</li>{% endfor %}</ul>
+{% endif %}
+
+    <hr style="border:none;border-top:1px solid #E2E8F0;margin:20px 0;" />
+
+    <p style="margin:0 0 16px;font-size:13px;color:#718096;">
+      Scheduled for: <strong style="color:#2D3748;">{{ scheduled_for or 'Immediately' }}</strong>
+    </p>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="background-color:#2D9B6F;border-radius:8px;padding:14px 28px;">
+          <a href="{{ approve_link }}" style="color:#FFFFFF;font-size:15px;font-weight:700;text-decoration:none;">Send to Subscribers →</a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:16px 0 0;font-size:12px;color:#718096;">
+      This briefing is already live on saralprivacy.com. Click the button above when you are ready
+      to email it to all active subscribers. This action cannot be undone.
+    </p>
+{% endblock %}

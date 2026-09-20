@@ -1,0 +1,37 @@
+{% extends "forms/_base.html" %}
+{% block content %}
+    <h2 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1E3A5F;">Welcome, {{ name }}!</h2>
+    <p style="margin:0 0 20px;font-size:15px;color:#718096;line-height:1.6;">
+      You're now subscribed to the SaralPrivacy Daily Brief — India's most trusted source for DPDPA compliance news.
+    </p>
+
+    <hr style="border:none;border-top:1px solid #E2E8F0;margin:20px 0;" />
+
+    <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#1E3A5F;">What you'll receive:</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="padding:8px 0;font-size:13px;color:#2D3748;">📋 &nbsp;<strong>Daily DPDPA briefings</strong> — regulatory updates distilled to essentials</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;font-size:13px;color:#2D3748;">⚡ &nbsp;<strong>Actionable checklists</strong> — know exactly what to do and when</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;font-size:13px;color:#2D3748;">🔔 &nbsp;<strong>Priority alerts</strong> — never miss a deadline or enforcement update</td>
+      </tr>
+    </table>
+
+    <hr style="border:none;border-top:1px solid #E2E8F0;margin:20px 0;" />
+
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="background-color:#E07B39;border-radius:8px;padding:12px 24px;">
+          <a href="https://saralprivacy.com" style="color:#FFFFFF;font-size:14px;font-weight:600;text-decoration:none;">Explore SaralPrivacy →</a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:24px 0 0;font-size:12px;color:#718096;line-height:1.6;">
+      You can unsubscribe at any time by clicking the unsubscribe link in any briefing email.
+      We respect your privacy and will never share your data.
+    </p>
+{% endblock %}

@@ -1,0 +1,14 @@
+{#- sendDiscoveryInventory in frontend/lib/email.ts — a bare div, not baseLayout. -#}
+      <div style="font-family:Inter,Arial,sans-serif;color:#334155;line-height:1.6;max-width:560px">
+        <p>{% if name %}Hi {{ name }},{% else %}Hi,{% endif %}</p>
+        <p>Attached is your <strong>DPDPA personal data inventory</strong> for
+        {{ niche_name|lower }} — the data points you confirmed, with who they're about,
+        why you hold them, where they live, and a recommended precaution for each.</p>
+        <p>It's a practical starting "record of processing" you can keep working in. When you're
+        ready to score and prioritise the fixes for your business, take the full readiness assessment:</p>
+        <p><a href="https://saralprivacy.com/assessment"
+          style="display:inline-block;background:#07B981;color:#fff;font-weight:600;
+          text-decoration:none;padding:12px 22px;border-radius:8px">Take the full assessment →</a></p>
+        <p style="font-size:13px;color:#94A3B8">This inventory is an educational snapshot, not legal advice.</p>
+        <p style="font-size:13px;color:#94A3B8">— SaralPrivacy · Privacy made practical for India</p>
+      </div>

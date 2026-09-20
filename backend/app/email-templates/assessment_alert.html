@@ -1,0 +1,28 @@
+{# Port of `assessmentAlertTemplate()` — admin alert when an assessment is completed. #}
+{% extends "assessment_base.html" %}
+{% macro label_row(label, value) -%}
+  <tr>
+    <td style="padding:6px 0;font-size:13px;color:#718096;width:140px;vertical-align:top;">{{ label }}</td>
+    <td style="padding:6px 0;font-size:13px;color:#2D3748;font-weight:500;vertical-align:top;">{{ value if value else "—" }}</td>
+  </tr>
+{%- endmacro %}
+{% block content %}
+    <p style="margin:0 0 4px;font-size:13px;color:#718096;">ADMIN ALERT</p>
+    <h2 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#1E3A5F;">Assessment Completed</h2>
+
+    <span style="display:inline-block;padding:3px 10px;background-color:{{ risk_color }};color:#fff;font-size:11px;font-weight:600;border-radius:20px;letter-spacing:0.5px;">Risk: {{ risk_level }}</span>
+    <hr style="border:none;border-top:1px solid #E2E8F0;margin:20px 0;" />
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      {{ label_row('Email', email) }}
+      {{ label_row('Industry', industry) }}
+      {{ label_row('Risk Level', risk_level) }}
+      {{ label_row('Applicability', applicability_score) }}
+      {{ label_row('Maturity Score', maturity_score) }}
+      {{ label_row('Risk Score', risk_score) }}
+      {{ label_row('Urgency Score', urgency_score) }}
+      {{ label_row('Overall Score', overall_score) }}
+    </table>
+
+    <p style="margin:20px 0 0;font-size:12px;color:#718096;">Consider reaching out with tailored compliance guidance for this industry.</p>
+{% endblock %}

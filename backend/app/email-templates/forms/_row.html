@@ -1,0 +1,7 @@
+{#- labelRow() from frontend/lib/email-templates.ts -#}
+{% macro label_row(label, value) -%}
+  <tr>
+    <td style="padding:6px 0;font-size:13px;color:#718096;width:140px;vertical-align:top;">{{ label }}</td>
+    <td style="padding:6px 0;font-size:13px;color:#2D3748;font-weight:500;vertical-align:top;">{{ value if value else '—' }}</td>
+  </tr>
+{%- endmacro %}

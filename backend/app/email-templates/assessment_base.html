@@ -1,0 +1,56 @@
+{#
+  Verbatim port of `baseLayout()` in webapp/lib/email-templates.ts.
+  Brand colours: NAV #1E3A5F, SAFFRON #E07B39, LIGHT_BG #F7F8FA, TEXT #2D3748,
+  MUTED #718096, BORDER #E2E8F0. Inline CSS only (Gmail/Outlook).
+  Kept separate from core's base.html so these two emails stay byte-identical to today's.
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SaralPrivacy</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F7F8FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#2D3748;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F7F8FA;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#1E3A5F;border-radius:12px 12px 0 0;padding:28px 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td>
+                    <span style="color:#FFFFFF;font-size:20px;font-weight:700;letter-spacing:-0.3px;">Saral<span style="color:#E07B39;">Privacy</span></span>
+                    <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:12px;">DPDPA Compliance Platform</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background-color:#FFFFFF;padding:32px;border-left:1px solid #E2E8F0;border-right:1px solid #E2E8F0;">
+              {% block content %}{% endblock %}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#F7F8FA;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 12px 12px;padding:20px 32px;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#718096;">
+                SaralPrivacy · DPDPA Compliance Made Simple<br/>
+                <a href="https://saralprivacy.com" style="color:#1E3A5F;text-decoration:none;">saralprivacy.com</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{#- sendDiscoveryLeadAlert in frontend/lib/email.ts — a bare div, not baseLayout. -#}
+{% macro row(k, v) -%}
+<tr><td style="padding:4px 12px 4px 0;color:#64748B">{{ k }}</td><td style="padding:4px 0;color:#121A2E"><strong>{{ v if v else '—' }}</strong></td></tr>
+{%- endmacro %}
+      <div style="font-family:Inter,Arial,sans-serif;color:#334155;max-width:560px">
+        <p>New <strong>Personal Data Discovery</strong> lead — they downloaded their data inventory.</p>
+        <table style="font-size:14px;border-collapse:collapse">
+          {{ row('Business', lead.business_name) }}
+          {{ row('Contact', lead.name) }}
+          {{ row('Email', lead.email) }}
+          {{ row('Phone', lead.phone) }}
+          {{ row('Team size', lead.employees) }}
+          {{ row('Business type', lead.niche_name) }}
+          {{ row('Location', lead.location) }}
+        </table>
+      </div>

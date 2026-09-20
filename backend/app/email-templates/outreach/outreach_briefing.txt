@@ -1,0 +1,25 @@
+Hi {{ first_name }},
+
+Here is today's DPDPA briefing — {{ title }}
+
+{{ summary or "" }}
+
+{% if why_text %}WHY IT MATTERS
+{{ why_text }}
+{% endif %}
+{% if content %}{{ content }}
+{% endif %}
+{% if checklist_text %}YOUR ACTION CHECKLIST
+{{ checklist_text }}
+{% endif %}
+
+Want this every morning?
+Subscribe here: {{ subscribe_url }}
+One email per day. Unsubscribe anytime.
+
+---
+You are receiving this one-time briefing because your business operates in a sector covered by DPDPA.
+We will not email you again unless you subscribe.
+
+Remove me: {{ unsubscribe_url }}
+SaralPrivacy, India

@@ -1,0 +1,91 @@
+# SaralPrivacy — local stack. `make up` (or `docker compose up -d --wait`).
+# Ports: frontend 3000, backend 8000, postgres 5434 (host) → 5432 (container).
+# docker-compose.override.yml adds hot reload and the mailcatcher/minio/playwright profiles.
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER?Variable not set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD?Variable not set}
+      POSTGRES_DB: ${POSTGRES_DB?Variable not set}
+    ports:
+      - "5434:5432"
+    volumes:
+      - app-db-data:/var/lib/postgresql/data
+      - ./backend/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build:
+      context: ./backend
+    image: saralprivacy-backend:local
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: "5432"
+      FRONTEND_HOST: http://localhost:3000
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      SMTP_HOST: ${SMTP_HOST:-mailcatcher}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/v1/utils/health-check/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    command: bash -c "bash scripts/prestart.sh && fastapi run app/main.py --port 8000"
+
+  worker:
+    image: saralprivacy-backend:local
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: "5432"
+      FRONTEND_HOST: http://frontend:3000
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      SMTP_HOST: ${SMTP_HOST:-mailcatcher}
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: python -m app.jobs
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        PUBLIC_ASSET_BASE_URL: ${PUBLIC_ASSET_BASE_URL:-http://localhost:9000/saralprivacy}
+        # Compiled into the browser bundle; read from .env at build time.
+        NEXT_PUBLIC_SHOW_HINDI: ${NEXT_PUBLIC_SHOW_HINDI:-}
+    image: saralprivacy-frontend:local
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      BACKEND_URL: http://backend:8000
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  app-db-data:
