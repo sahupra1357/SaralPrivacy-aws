@@ -6,6 +6,8 @@
 # migrates the database before serving.
 
 resource "aws_ecs_cluster" "this" {
+  count = local.is_fargate ? 1 : 0
+
   name = local.name
 
   setting {
@@ -15,7 +17,9 @@ resource "aws_ecs_cluster" "this" {
 }
 
 resource "aws_ecs_cluster_capacity_providers" "this" {
-  cluster_name       = aws_ecs_cluster.this.name
+  count = local.is_fargate ? 1 : 0
+
+  cluster_name       = aws_ecs_cluster.this[0].name
   capacity_providers = ["FARGATE", "FARGATE_SPOT"]
 
   default_capacity_provider_strategy {
@@ -28,15 +32,19 @@ resource "aws_ecs_cluster_capacity_providers" "this" {
 # ─── Service discovery (backend.saralprivacy.internal) ───────────────────────
 
 resource "aws_service_discovery_private_dns_namespace" "this" {
+  count = local.is_fargate ? 1 : 0
+
   name = local.service_namespace
   vpc  = aws_vpc.this.id
 }
 
 resource "aws_service_discovery_service" "backend" {
+  count = local.is_fargate ? 1 : 0
+
   name = "backend"
 
   dns_config {
-    namespace_id   = aws_service_discovery_private_dns_namespace.this.id
+    namespace_id   = aws_service_discovery_private_dns_namespace.this[0].id
     routing_policy = "MULTIVALUE"
     dns_records {
       type = "A"
@@ -52,7 +60,7 @@ resource "aws_service_discovery_service" "backend" {
 # ─── Logs ────────────────────────────────────────────────────────────────────
 
 resource "aws_cloudwatch_log_group" "svc" {
-  for_each          = toset(["web", "api", "worker"])
+  for_each          = local.is_fargate ? toset(["web", "api", "worker"]) : toset([])
   name              = "/ecs/${local.name}/${each.key}"
   retention_in_days = var.log_retention_days
 }
@@ -82,6 +90,8 @@ locals {
 # ─── Frontend ────────────────────────────────────────────────────────────────
 
 resource "aws_ecs_task_definition" "frontend" {
+  count = local.is_fargate ? 1 : 0
+
   family                   = "${local.name}-web"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -117,9 +127,11 @@ resource "aws_ecs_task_definition" "frontend" {
 }
 
 resource "aws_ecs_service" "frontend" {
+  count = local.is_fargate ? 1 : 0
+
   name            = "${local.name}-web"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.frontend.arn
+  cluster         = aws_ecs_cluster.this[0].id
+  task_definition = aws_ecs_task_definition.frontend[0].arn
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
 
@@ -141,7 +153,7 @@ resource "aws_ecs_service" "frontend" {
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.app.arn
+    target_group_arn = aws_lb_target_group.app[0].arn
     container_name   = "web"
     container_port   = var.container_port
   }
@@ -150,12 +162,14 @@ resource "aws_ecs_service" "frontend" {
     ignore_changes = [desired_count] # autoscaling owns it
   }
 
-  depends_on = [aws_lb_listener.https, aws_ecs_service.backend]
+  depends_on = [aws_lb_listener.https[0], aws_ecs_service.backend]
 }
 
 # ─── Backend (FastAPI) ───────────────────────────────────────────────────────
 
 resource "aws_ecs_task_definition" "backend" {
+  count = local.is_fargate ? 1 : 0
+
   family                   = "${local.name}-api"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -191,9 +205,11 @@ resource "aws_ecs_task_definition" "backend" {
 }
 
 resource "aws_ecs_service" "backend" {
+  count = local.is_fargate ? 1 : 0
+
   name            = "${local.name}-api"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.backend.arn
+  cluster         = aws_ecs_cluster.this[0].id
+  task_definition = aws_ecs_task_definition.backend[0].arn
   desired_count   = var.backend_min_count
   launch_type     = "FARGATE"
 
@@ -214,7 +230,7 @@ resource "aws_ecs_service" "backend" {
   }
 
   service_registries {
-    registry_arn = aws_service_discovery_service.backend.arn
+    registry_arn = aws_service_discovery_service.backend[0].arn
   }
 
   lifecycle {
@@ -229,6 +245,8 @@ resource "aws_ecs_service" "backend" {
 # advisory lock, so an overlapping deploy never double-runs a job.
 
 resource "aws_ecs_task_definition" "worker" {
+  count = local.is_fargate ? 1 : 0
+
   family                   = "${local.name}-worker"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -257,9 +275,11 @@ resource "aws_ecs_task_definition" "worker" {
 }
 
 resource "aws_ecs_service" "worker" {
+  count = local.is_fargate ? 1 : 0
+
   name            = "${local.name}-worker"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.worker.arn
+  cluster         = aws_ecs_cluster.this[0].id
+  task_definition = aws_ecs_task_definition.worker[0].arn
   desired_count   = 1
   launch_type     = "FARGATE"
 
@@ -282,16 +302,16 @@ resource "aws_ecs_service" "worker" {
 # ─── Autoscaling (frontend + backend) ────────────────────────────────────────
 
 locals {
-  scaled = {
-    web = { service = aws_ecs_service.frontend.name, min = var.min_count, max = var.max_count }
-    api = { service = aws_ecs_service.backend.name, min = var.backend_min_count, max = var.backend_max_count }
-  }
+  scaled = local.is_fargate ? {
+    web = { service = one(aws_ecs_service.frontend[*].name), min = var.min_count, max = var.max_count }
+    api = { service = one(aws_ecs_service.backend[*].name), min = var.backend_min_count, max = var.backend_max_count }
+  } : {}
 }
 
 resource "aws_appautoscaling_target" "svc" {
   for_each           = local.scaled
   service_namespace  = "ecs"
-  resource_id        = "service/${aws_ecs_cluster.this.name}/${each.value.service}"
+  resource_id        = "service/${one(aws_ecs_cluster.this[*].name)}/${each.value.service}"
   scalable_dimension = "ecs:service:DesiredCount"
   min_capacity       = each.value.min
   max_capacity       = each.value.max

@@ -214,6 +214,17 @@ resource "aws_security_group" "rds" {
   }
 
   dynamic "ingress" {
+    for_each = local.is_ec2 ? [1] : []
+    content {
+      description     = "Postgres from the app instance (compute_mode = ec2)"
+      from_port       = 5432
+      to_port         = 5432
+      protocol        = "tcp"
+      security_groups = [aws_security_group.ec2[0].id]
+    }
+  }
+
+  dynamic "ingress" {
     for_each = length(var.db_admin_cidrs) > 0 ? [1] : []
     content {
       description = "Postgres from admin CIDRs"

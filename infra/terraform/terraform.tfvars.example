@@ -1,6 +1,18 @@
 # Copy to terraform.tfvars (git-ignored). Everything has a sane default; these are the
 # values you are most likely to change.
 
+# ── Compute: "ec2" (one docker-compose box in an ASG, ~48/mo) or "fargate"
+# (three ECS services behind an ALB, ~170/mo). Everything else — VPC, RDS, S3,
+# ECR, secrets, DNS, CloudFront — is identical either way, so switching modes is
+# this one line plus `terraform apply`. See docs/build/DEPLOY_RUNBOOK.md Part 4.
+compute_mode = "ec2"
+
+# compute_mode = "ec2" knobs (ignored in fargate mode)
+ec2_instance_type  = "t4g.medium" # 2 vCPU / 4 GB; must match cpu_architecture
+ec2_root_volume_gb = 30           # the API image carries Chromium
+# ec2_key_name           = ""     # empty = SSM Session Manager only (recommended)
+# ec2_enable_health_check = true  # Route 53 check drives the alarm, not the failover
+
 aws_region  = "ap-south-1"
 domain_name = "saralprivacy.com"
 environment = "prod"
@@ -15,6 +27,8 @@ create_hosted_zone = true
 enable_cloudfront = true
 
 # Cost knobs
+# NAT is only used by the fargate path; the ec2 instance sits in a public subnet
+# with its Elastic IP, so leave this false in ec2 mode (~USD 33/mo less).
 enable_nat_gateway = true # false = tasks in public subnets, no NAT (~USD 35/mo less)
 
 # Frontend (Next.js)
@@ -41,7 +55,7 @@ db_deletion_protection = true
 alarm_email = "you@example.com"
 
 # CI/CD (GitHub OIDC)
-github_repository    = "SahuDilip1356/SaralPrivacy"
+github_repository    = "sahupra1357/SaralPrivacy-aws"
 github_deploy_branch = "main"
 
 # Extra non-secret backend/worker env (merged over locals.tf defaults)

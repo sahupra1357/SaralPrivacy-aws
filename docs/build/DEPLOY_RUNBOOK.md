@@ -398,3 +398,85 @@ Most pages are SSG and absorbed by the CDN, so the origin sees API calls, PDFs a
 **Alarms that tell you when to resize:** `CPUCreditBalance` trending to zero, memory >80%
 (needs the CloudWatch agent), PDF endpoint p95 latency climbing, RDS `DatabaseConnections`
 near the cap.
+
+---
+
+# Part 5 — Switching the AWS stack between EC2 and Fargate
+
+`infra/terraform` builds either compute layer from one variable. Everything else —
+VPC, RDS, S3, ECR, Secrets Manager, Route 53, ACM, CloudFront, SNS alarms — is shared and
+untouched by the switch.
+
+```hcl
+compute_mode = "ec2"      # ASG(min=max=1) + docker compose, ~48/mo
+compute_mode = "fargate"  # ECS web/api/worker behind an ALB, ~170/mo (the default)
+```
+
+`terraform apply` after the change migrates between them. Switching is **not** zero
+downtime: the old compute is destroyed and the new one built, a few minutes with the
+database untouched. Do it deliberately, not during traffic.
+
+## What each mode creates
+
+| | `ec2` | `fargate` |
+|---|---|---|
+| Compute | 1 × EC2 in an ASG (min=max=1), docker compose | 3 ECS services (web, api, worker) |
+| Edge | Caddy on the box, TLS from Let's Encrypt | ALB + WAF |
+| Public address | Elastic IP, re-claimed by the replacement | ALB DNS |
+| DNS | A records → EIP | Alias → ALB/CloudFront |
+| Logs | one group, streams api/worker/web/caddy | one group per service |
+| Scaling | resize the instance | ECS target tracking, 1-4 tasks |
+| Extra cost | — | ALB 20 + NAT 33 + WAF 10 |
+
+In `ec2` mode set `enable_nat_gateway = false`: the instance lives in a public subnet with
+its Elastic IP and never needs NAT. WAF is skipped automatically (it can only attach to the
+ALB), and `enable_cloudfront` still works — CloudFront's origin becomes `origin.<domain>`,
+pointing at the EIP, with Caddy terminating TLS there.
+
+## Files
+
+- `ec2.tf` — EIP, security group, instance role, launch template, ASG, Route 53 health
+  check, instance alarms (status check, CPU credits, memory).
+- `templates/user_data.sh.tftpl` — boot script: claim the EIP, install docker, read both
+  secrets into `/opt/app/.env`, write `docker-compose.yml` + `Caddyfile`, start. Idempotent,
+  because the ASG reruns it on every replacement.
+- `alb.tf`, `ecs.tf`, `waf.tf` — gated `count = local.is_fargate ? 1 : 0`.
+- `dns.tf` — alias records in fargate mode, A records to the EIP in ec2 mode.
+
+## Operating the ec2 mode
+
+```bash
+# shell on the box (no SSH key, no bastion)
+aws ssm start-session --target "$(aws autoscaling describe-auto-scaling-groups \
+  --auto-scaling-group-names saralprivacy-prod-app \
+  --query 'AutoScalingGroups[0].Instances[0].InstanceId' --output text)"
+
+# deploy: images are already in ECR (the GitHub workflow builds them)
+aws ssm send-command --document-name AWS-RunShellScript \
+  --targets Key=tag:Name,Values=saralprivacy-prod-app \
+  --parameters 'commands=["systemctl start app-deploy"]'
+
+# logs, all four containers
+aws logs tail /ec2/saralprivacy-prod --follow
+
+# run one job now
+docker compose -f /opt/app/docker-compose.yml exec worker python -m app.jobs run briefing-send
+```
+
+`.github/workflows/deploy-aws.yml` rolls **ECS services** and therefore only fits fargate
+mode. In ec2 mode, let it build and push the images, then replace the three "Roll …" steps
+with the `ssm send-command` above.
+
+## Before trusting the failover
+
+Terminate the instance on purpose and watch a replacement come up:
+
+```bash
+aws autoscaling terminate-instance-in-auto-scaling-group \
+  --instance-id <id> --should-decrement-desired-capacity false
+```
+
+Expect ~3-6 minutes to a working site. What usually breaks the first time: a secret key the
+user-data does not read, an ACME rate limit from repeated certificate issuance, or the EIP
+association failing because the role lacks `ec2:AssociateAddress`. Better to learn that on a
+quiet afternoon than during an outage.

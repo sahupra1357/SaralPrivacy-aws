@@ -11,13 +11,15 @@ resource "aws_sns_topic_subscription" "alarm_email" {
 }
 
 locals {
-  alb_dim = {
-    LoadBalancer = aws_lb.this.arn_suffix
-    TargetGroup  = aws_lb_target_group.app.arn_suffix
-  }
+  alb_dim = local.is_fargate ? {
+    LoadBalancer = one(aws_lb.this[*].arn_suffix)
+    TargetGroup  = one(aws_lb_target_group.app[*].arn_suffix)
+  } : {}
 }
 
 resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
+  count = local.is_fargate ? 1 : 0
+
   alarm_name          = "${local.name}-alb-5xx"
   alarm_description   = "Targets returned >= 10 5xx responses in 5 minutes"
   namespace           = "AWS/ApplicationELB"
@@ -34,6 +36,8 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "unhealthy_hosts" {
+  count = local.is_fargate ? 1 : 0
+
   alarm_name          = "${local.name}-unhealthy-hosts"
   alarm_description   = "At least one target failing the /api/health check"
   namespace           = "AWS/ApplicationELB"
@@ -50,10 +54,10 @@ resource "aws_cloudwatch_metric_alarm" "unhealthy_hosts" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "ecs_cpu" {
-  for_each = {
-    web = aws_ecs_service.frontend.name
-    api = aws_ecs_service.backend.name
-  }
+  for_each = local.is_fargate ? {
+    web = one(aws_ecs_service.frontend[*].name)
+    api = one(aws_ecs_service.backend[*].name)
+  } : {}
 
   alarm_name          = "${local.name}-${each.key}-cpu-high"
   alarm_description   = "${each.key} CPU above 85% for 10 minutes (autoscaling ceiling may be reached)"
@@ -65,7 +69,7 @@ resource "aws_cloudwatch_metric_alarm" "ecs_cpu" {
   threshold           = 85
   comparison_operator = "GreaterThanThreshold"
   dimensions = {
-    ClusterName = aws_ecs_cluster.this.name
+    ClusterName = one(aws_ecs_cluster.this[*].name)
     ServiceName = each.value
   }
   alarm_actions = [aws_sns_topic.alarms.arn]
@@ -74,6 +78,8 @@ resource "aws_cloudwatch_metric_alarm" "ecs_cpu" {
 # The worker runs the scheduled jobs (briefing send, outreach, pipeline). If it is not
 # running, nothing is sent — alert when its task count drops below one.
 resource "aws_cloudwatch_metric_alarm" "worker_down" {
+  count = local.is_fargate ? 1 : 0
+
   alarm_name          = "${local.name}-worker-not-running"
   alarm_description   = "Worker service has no running task: scheduled jobs are not executing"
   namespace           = "ECS/ContainerInsights"
@@ -85,8 +91,8 @@ resource "aws_cloudwatch_metric_alarm" "worker_down" {
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "breaching"
   dimensions = {
-    ClusterName = aws_ecs_cluster.this.name
-    ServiceName = aws_ecs_service.worker.name
+    ClusterName = one(aws_ecs_cluster.this[*].name)
+    ServiceName = one(aws_ecs_service.worker[*].name)
   }
   alarm_actions = [aws_sns_topic.alarms.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]

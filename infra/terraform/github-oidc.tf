@@ -67,9 +67,11 @@ data "aws_iam_policy_document" "github_deploy" {
   }
 
   statement {
-    sid       = "EcsDeploy"
-    actions   = ["ecs:UpdateService", "ecs:DescribeServices"]
-    resources = [aws_ecs_service.frontend.id, aws_ecs_service.backend.id, aws_ecs_service.worker.id]
+    sid     = "EcsDeploy"
+    actions = ["ecs:UpdateService", "ecs:DescribeServices"]
+    # ECS services in fargate mode; in ec2 mode the deploy is an SSM command, so
+    # the ECS statement is scoped to nothing meaningful and "*" is inert.
+    resources = local.is_fargate ? concat(aws_ecs_service.frontend[*].id, aws_ecs_service.backend[*].id, aws_ecs_service.worker[*].id) : ["*"]
   }
 
   statement {

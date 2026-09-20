@@ -1,5 +1,5 @@
 resource "aws_wafv2_web_acl" "this" {
-  count = var.enable_waf ? 1 : 0
+  count = local.is_fargate && var.enable_waf ? 1 : 0
 
   name  = "${local.name}-waf"
   scope = "REGIONAL"
@@ -119,8 +119,8 @@ resource "aws_wafv2_web_acl" "this" {
 }
 
 resource "aws_wafv2_web_acl_association" "alb" {
-  count = var.enable_waf ? 1 : 0
+  count = local.is_fargate && var.enable_waf ? 1 : 0
 
-  resource_arn = aws_lb.this.arn
+  resource_arn = aws_lb.this[0].arn
   web_acl_arn  = aws_wafv2_web_acl.this[0].arn
 }

@@ -1,4 +1,6 @@
 resource "aws_lb" "this" {
+  count = local.is_fargate ? 1 : 0
+
   name               = substr("${local.name}-alb", 0, 32)
   load_balancer_type = "application"
   internal           = false
@@ -17,6 +19,8 @@ resource "aws_lb" "this" {
 }
 
 resource "aws_lb_target_group" "app" {
+  count = local.is_fargate ? 1 : 0
+
   name                 = substr("${local.name}-tg", 0, 32)
   port                 = var.container_port
   protocol             = "HTTP"
@@ -42,7 +46,9 @@ resource "aws_lb_target_group" "app" {
 }
 
 resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.this.arn
+  count = local.is_fargate ? 1 : 0
+
+  load_balancer_arn = aws_lb.this[0].arn
   port              = 80
   protocol          = "HTTP"
 
@@ -57,7 +63,9 @@ resource "aws_lb_listener" "http" {
 }
 
 resource "aws_lb_listener" "https" {
-  load_balancer_arn = aws_lb.this.arn
+  count = local.is_fargate ? 1 : 0
+
+  load_balancer_arn = aws_lb.this[0].arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
@@ -65,13 +73,15 @@ resource "aws_lb_listener" "https" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+    target_group_arn = aws_lb_target_group.app[0].arn
   }
 }
 
 # www.<domain> → <domain> (301), keeps one canonical host for SEO.
 resource "aws_lb_listener_rule" "www_redirect" {
-  listener_arn = aws_lb_listener.https.arn
+  count = local.is_fargate ? 1 : 0
+
+  listener_arn = aws_lb_listener.https[0].arn
   priority     = 10
 
   action {

@@ -313,3 +313,64 @@ variable "enable_cloudfront" {
   type        = bool
   default     = true
 }
+
+# ─── Compute mode ────────────────────────────────────────────────────────────
+
+variable "compute_mode" {
+  description = "Which compute layer to build: \"fargate\" (ECS services behind an ALB) or \"ec2\" (one docker-compose instance in an ASG with min=max=1). Everything else — VPC, RDS, S3, ECR, secrets, DNS, CloudFront — is shared."
+  type        = string
+  default     = "fargate"
+
+  validation {
+    condition     = contains(["fargate", "ec2"], var.compute_mode)
+    error_message = "compute_mode must be \"fargate\" or \"ec2\"."
+  }
+}
+
+variable "ec2_instance_type" {
+  description = "Instance type for compute_mode = ec2. t4g.medium (2 vCPU, 4 GB) fits web + api + worker + caddy; t4g.small is too small once Chromium renders a PDF. Must match cpu_architecture."
+  type        = string
+  default     = "t4g.medium"
+}
+
+variable "ec2_root_volume_gb" {
+  description = "Root EBS volume (gp3). Holds both container images (the API image carries Chromium) plus logs."
+  type        = number
+  default     = 30
+}
+
+variable "ec2_key_name" {
+  description = "Optional EC2 key pair for SSH. Empty means SSM Session Manager only, which is the recommended path."
+  type        = string
+  default     = ""
+}
+
+variable "ec2_detailed_monitoring" {
+  description = "1-minute EC2 metrics instead of 5-minute. Costs ~2 USD/instance/month."
+  type        = bool
+  default     = false
+}
+
+variable "ec2_health_check_grace" {
+  description = "Seconds before the ASG health check counts. Must cover boot + image pull + alembic upgrade."
+  type        = number
+  default     = 300
+}
+
+variable "ec2_enable_health_check" {
+  description = "Route 53 health check on the instance. It drives the alarm, not the failover — the replacement claims the Elastic IP, so DNS never changes. ~0.50 USD/month."
+  type        = bool
+  default     = true
+}
+
+variable "ec2_health_check_path" {
+  description = "Path the Route 53 health check requests."
+  type        = string
+  default     = "/api/health"
+}
+
+variable "ec2_cpu_credit_threshold" {
+  description = "Alarm when CPUCreditBalance falls below this (burstable families only). Sustained breach means resize to a non-burstable instance."
+  type        = number
+  default     = 60
+}

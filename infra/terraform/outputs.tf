@@ -12,8 +12,8 @@ output "site_url" {
 }
 
 output "alb_dns_name" {
-  description = "The ALB behind CloudFront. With CloudFront on, it accepts only CloudFront traffic; smoke-test via the CloudFront domain instead."
-  value       = aws_lb.this.dns_name
+  description = "The ALB behind CloudFront (compute_mode = fargate only). With CloudFront on, it accepts only CloudFront traffic; smoke-test via the CloudFront domain instead."
+  value       = one(aws_lb.this[*].dns_name)
 }
 
 output "ecr_web_repository_url" {
@@ -27,16 +27,17 @@ output "ecr_api_repository_url" {
 }
 
 output "ecs_cluster_name" {
-  value = aws_ecs_cluster.this.name
+  description = "compute_mode = fargate only; null in ec2 mode."
+  value       = one(aws_ecs_cluster.this[*].name)
 }
 
 output "ecs_services" {
   description = "Service names (GitHub variables ECS_WEB_SERVICE, ECS_API_SERVICE, ECS_WORKER_SERVICE)."
-  value = {
-    web    = aws_ecs_service.frontend.name
-    api    = aws_ecs_service.backend.name
-    worker = aws_ecs_service.worker.name
-  }
+  value = local.is_fargate ? {
+    web    = aws_ecs_service.frontend[0].name
+    api    = aws_ecs_service.backend[0].name
+    worker = aws_ecs_service.worker[0].name
+  } : null
 }
 
 output "backend_internal_url" {
@@ -79,4 +80,21 @@ output "asset_base_url" {
 
 output "alarm_topic_arn" {
   value = aws_sns_topic.alarms.arn
+}
+
+# ─── compute_mode = "ec2" ────────────────────────────────────────────────────
+
+output "app_public_ip" {
+  description = "Elastic IP of the app instance. Survives replacement, so DNS never changes."
+  value       = one(aws_eip.app[*].public_ip)
+}
+
+output "app_asg_name" {
+  description = "Auto Scaling Group supervising the instance (min = max = 1)."
+  value       = one(aws_autoscaling_group.app[*].name)
+}
+
+output "app_log_group" {
+  description = "CloudWatch log group carrying the api/worker/web/caddy container streams."
+  value       = one(aws_cloudwatch_log_group.ec2[*].name)
 }

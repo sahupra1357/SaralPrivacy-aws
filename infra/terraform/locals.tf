@@ -5,6 +5,9 @@ data "aws_availability_zones" "available" {
 data "aws_caller_identity" "current" {}
 
 locals {
+  is_fargate = var.compute_mode == "fargate"
+  is_ec2     = var.compute_mode == "ec2"
+
   name     = "${var.project_name}-${var.environment}"
   azs      = slice(data.aws_availability_zones.available.names, 0, var.az_count)
   site_url = "https://${var.domain_name}"
@@ -62,4 +65,8 @@ locals {
     POSTGRES_PASSWORD = "password"
     POSTGRES_DB       = "dbname"
   }
+
+  # Same frontend env as ECS, minus the Cloud Map address — on one host the
+  # frontend reaches the API over the compose network (see user_data).
+  frontend_env_ec2 = { for k, v in local.frontend_env : k => v if k != "BACKEND_URL" }
 }
