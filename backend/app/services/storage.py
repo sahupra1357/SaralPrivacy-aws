@@ -5,6 +5,7 @@ PUBLIC_ASSET_BASE_URL so the same key works behind a CDN later.
 """
 
 import json
+import logging
 from functools import lru_cache
 from typing import Any
 
@@ -13,6 +14,8 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from app.core.config import settings
+
+log = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -99,5 +102,12 @@ def ensure_bucket(public_prefix: str = "infographics/") -> bool:
             }
         ],
     }
-    client.put_bucket_policy(Bucket=settings.S3_BUCKET, Policy=json.dumps(policy))
+    try:
+        client.put_bucket_policy(Bucket=settings.S3_BUCKET, Policy=json.dumps(policy))
+    except ClientError as exc:
+        # Cloudflare R2 has no bucket policies (NotImplemented) — public reads are granted
+        # in its dashboard instead. Anything else is a real failure and must surface.
+        if exc.response.get("Error", {}).get("Code") != "NotImplemented":
+            raise
+        log.info("bucket policy skipped: %s does not implement PutBucketPolicy", settings.S3_ENDPOINT)
     return created
