@@ -314,3 +314,87 @@ commercial product — budget for Pro.
 The residency row is the one that may decide it: this product sells DPDPA readiness, and
 "where does our data live" is a question customers will ask. A middle path is RDS in
 ap-south-1 (~15) with the app staying on Render.
+
+---
+
+# Part 4 — Which AWS shape, and when to move
+
+Conclusion of the 2026-09-20 sizing discussion. Fargate (Part 2) stays the documented
+target, but it is not the cheapest correct answer at this stage.
+
+## The recommended shape: ASG(min=1) + RDS + Route 53 health check — ≈ 48/mo
+
+One EC2 instance running the repo's `docker-compose.yml`, in an Auto Scaling Group with
+`min=max=1` across two AZs, RDS in a private subnet, nginx or Caddy terminating TLS.
+
+The ASG is a supervisor, not a scaler: when the health check fails it terminates the
+instance and launches a replacement in the other AZ, unattended.
+
+| Step | Time |
+|---|---|
+| Health check marks unhealthy (2 × 30s) | ~1 min |
+| Instance boots | ~1 min |
+| `docker compose up` pulls + starts | 1-3 min |
+| Traffic moves | instant behind an ALB; +TTL with DNS |
+| **Unattended recovery** | **3-6 min** |
+
+Three things decide whether that actually happens:
+
+1. **No state on the box.** Postgres must be RDS. A replacement with a container database
+   comes up empty and you are restoring a snapshot — an hour, not minutes.
+2. **It must rebuild itself unattended** — user-data script or a baked AMI. The backend
+   image carries Chromium and is large; bake it into the AMI or accept the slower pull.
+3. **Traffic has to move** — ALB (instant, +20/mo) or a Route 53 health check with a 60s
+   TTL (~0.50/mo, some clients cache longer) or an Elastic IP claimed on boot.
+
+Not covered by failover: **deploy downtime** (compose drops requests for seconds — run two
+backend replicas behind local nginx and restart them one at a time), and **RDS single-AZ**
+(AWS replaces a failed instance in 5-10 min; Multi-AZ cuts that to ~60s for +15/mo).
+
+**Terminate the instance on purpose once, on a quiet afternoon.** Untested failover almost
+always hides one missing piece: an unset env var, an unpersisted TLS cert, a security group
+that named the old instance.
+
+| Setup | USD/mo | Recovery |
+|---|---|---|
+| Single box, manual rebuild | 45 | 20-60 min |
+| **ASG min=1 + RDS + Route 53 health check** | **48** | **3-6 min** |
+| ASG min=1 + RDS + ALB | 68 | 1-2 min |
+| Two instances + ALB | 93 | 0 |
+| Fargate (Part 2) | 100-170 | 0 |
+
+## Capacity on t4g.medium (2 vCPU, 4 GB) + db.t4g.micro
+
+Most pages are SSG and absorbed by the CDN, so the origin sees API calls, PDFs and chat.
+
+| Load | Verdict |
+|---|---|
+| 100k registered accounts | Fine — rows are cheap |
+| 100k visitors/month (~3.3k/day) | Comfortable |
+| 100k visitors/day | Needs t4g.large (~50) + CDN. Feasible |
+| 100k concurrent | No |
+
+**What breaks first, in order:**
+
+1. **Playwright PDFs** — 300-500 MB and 1-3s each, so 2-3 concurrent on 4 GB; the 4th
+   queues. The true ceiling, and it is about simultaneous renders, not daily volume.
+2. **CPU credits** — t4g.medium's baseline is 20% of 2 vCPU. Sustained load above it drains
+   `CPUCreditBalance` and silently bills unlimited-mode surcharges. Move to m7g.large rather
+   than pay the surcharge indefinitely.
+3. **RDS connections** — db.t4g.micro caps near 80-100. Binds once several app instances run.
+4. **Chat streams** — I/O bound; Anthropic rate limits bite before local CPU does.
+
+## Scaling path
+
+- **Vertical first:** t4g.medium → large → xlarge. One Terraform line, minutes of downtime.
+  Carries roughly to 100k visitors/day.
+- **Horizontal later:** ALB + `max=3` (+20/mo). The app is already stateless — JWT cookie,
+  RDS, object storage, no local disk — and the worker's Postgres advisory locks already
+  prevent double job runs across instances, so this is configuration, not a rewrite.
+- **Fargate** when the trigger is operational rather than capacity: promised uptime, spiky
+  campaign traffic, more than one person deploying, or an audit demanding immutable
+  infrastructure and per-service logging. None of those are user counts.
+
+**Alarms that tell you when to resize:** `CPUCreditBalance` trending to zero, memory >80%
+(needs the CloudWatch agent), PDF endpoint p95 latency climbing, RDS `DatabaseConnections`
+near the cap.
