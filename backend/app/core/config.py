@@ -84,6 +84,10 @@ class Settings(BaseSettings):
     S3_SECRET_KEY: str = ""
     S3_REGION: str = "ap-south-1"
     PUBLIC_ASSET_BASE_URL: str = "http://localhost:9000/saralprivacy"
+    # Where the DPDPA guide PDFs are served from. Blank = the frontend's own
+    # /guides/pdf (the files sit in frontend/public). Set to an R2/S3 public base
+    # when they are hosted outside the app — the URL goes into emails and WhatsApp.
+    GUIDE_PDF_BASE_URL: str = ""
 
     # ── Email (SMTP; mailcatcher locally, Resend SMTP in production) ──────
     SMTP_HOST: str = "mailcatcher"

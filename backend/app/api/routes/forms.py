@@ -68,9 +68,13 @@ TEMPLATE_EXTENSIONS = {
 # binaries kept out of git and are still served from their published URLs; only the
 # *templates* above moved into frontend/public.
 DEFAULT_LANG_CODE = "en"
-# Self-hosted guide PDFs (frontend/public/guides/pdf/). Absolute because the URL
-# goes into emails.
-_GUIDE_BLOB = f"{settings.NEXT_PUBLIC_SITE_URL.rstrip('/')}/guides/pdf"
+# Guide PDFs: GUIDE_PDF_BASE_URL when they are hosted outside the app (R2/S3),
+# otherwise the frontend's own /guides/pdf. Absolute either way — the URL goes
+# into emails and WhatsApp messages.
+_GUIDE_BLOB = (
+    settings.GUIDE_PDF_BASE_URL.rstrip("/")
+    or f"{settings.NEXT_PUBLIC_SITE_URL.rstrip('/')}/guides/pdf"
+)
 GUIDE_PDF_URLS: dict[str, str | None] = {
     "en": f"{_GUIDE_BLOB}/dpdpa-guide-en.pdf",
     "hi": f"{_GUIDE_BLOB}/dpdpa-guide-hi.pdf",
